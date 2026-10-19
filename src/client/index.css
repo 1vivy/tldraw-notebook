@@ -1,0 +1,93 @@
+* { box-sizing: border-box; }
+:root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; color: #292e2b; background: #f7f5ef; font-synthesis: none; }
+body { margin: 0; }
+a { color: inherit; }
+button { font: inherit; }
+.room-index { max-width: 760px; padding: 80px 28px 40px; margin: auto; }
+.eyebrow { text-transform: uppercase; font-size: 11px; font-weight: 650; letter-spacing: .18em; color: #777d72; }
+.room-index h1 { font-family: Georgia, serif; font-size: clamp(38px, 7vw, 60px); font-weight: 400; letter-spacing: -.045em; margin: 20px 0; }
+.room-index h1 span { color: #b66c4c; }
+.index-description { max-width: 410px; line-height: 1.7; color: #70766e; margin-bottom: 38px; }
+.room-list { display: grid; gap: 12px; }
+.room-card { text-decoration: none; display: flex; align-items: center; gap: 22px; border: 1px solid #e2e1d7; border-radius: 10px; background: #fffef9; min-height: 95px; padding: 22px 26px; transition: border-color .15s, transform .15s; }
+.room-main { display:flex; align-items:center; gap:22px; flex:1; text-decoration:none; min-height:44px; }
+.today-link { font-size:12px; min-height:44px; display:flex; align-items:center; }
+.room-card:hover { border-color: #969f8b; transform: translateY(-2px); }
+.room-number { font: 24px Georgia, serif; }
+.room-card strong { display: block; font-size: 16px; font-weight: 600; letter-spacing: .02em; }
+.room-card small { display: block; margin-top: 5px; color: #858a80; }
+.room-arrow { margin-left: auto; font-size: 23px; color: #969d90; }
+.index-footnote { margin-top: 30px; font-size: 12px; color: #858a80; }
+.notebook-shell { position: fixed; inset: 0; display: flex; flex-direction: column; }
+.notebook-header { min-height: 60px; padding: max(12px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 18px; border-bottom: 1px solid #dedfd4; }
+.notebook-header a { text-decoration: none; font-size: 13px; color: #6a7566; }
+.notebook-header h1 { font-size: 15px; font-weight: 650; margin: 0; }
+.connection-status { margin-left: auto; color: #70816b; font-size: 11px; }
+.connection-error { color: #aa4236; }
+.notebook-canvas { position: relative; flex: 1; min-height: 0; }
+.notebook-paper { position: absolute; inset: 0; pointer-events: none; }
+.notebook-tools { position: absolute; z-index: 500; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px; border: 1px solid #dcdfd5; background: #fffef9; border-radius: 15px; box-shadow: 0 4px 18px #33443314; pointer-events: auto; touch-action: manipulation; }
+.notebook-tools button { border: 0; border-radius: 9px; min-width: 60px; min-height: 60px; background: transparent; color: #5d685a; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; }
+.notebook-tools button[aria-pressed="true"] { background: #e8eddf; color: #2e492d; }
+.notebook-tools button:disabled { opacity: .32; cursor: default; }
+.notebook-tools button:focus-visible, a:focus-visible { outline: 2px solid #526e49; outline-offset: 3px; }
+.tool-icon { font-size: 25px; line-height: 28px; }
+.tool-divider { width: 1px; background: #e2e4dc; margin: 8px 2px; }
+.notebook-hint { padding: 7px 12px max(7px, env(safe-area-inset-bottom)); font-size: 10px; text-align: center; color: #858c7f; border-top: 1px solid #e4e5dc; }
+@media (max-width: 520px) {
+  .room-index { padding-top: 42px; }
+  .notebook-header { gap: 10px; }
+  .notebook-header a { font-size: 11px; }
+  .notebook-header h1 { font-size: 13px; }
+  .connection-status { font-size: 10px; max-width: 125px; }
+  .notebook-tools { gap: 1px; padding: 4px; max-width: calc(100% - 12px); }
+  .notebook-tools button { min-width: 45px; min-height: 56px; font-size: 9px; }
+  .tool-divider { margin-inline: 1px; }
+}
+/* Pen-first chrome: fixed 44px hit areas, scroll instead of shrinking targets. */
+.notebook-canvas { padding-bottom: 108px; }
+.notebook-tools { top:auto; bottom:max(10px,env(safe-area-inset-bottom)); left:50%; max-width:calc(100% - 16px); overflow:auto; align-items:center; gap:2px; padding:5px; border-radius:16px; }
+.notebook-tools button { min-width:44px; min-height:48px; flex-shrink:0; padding:4px; font-size:9px; }
+.notebook-tools b { font-size:23px; font-weight:400; line-height:24px; }
+.favorites { display:flex; gap:0; }
+.notebook-tools .favorite { min-width:44px; }
+.favorite i,.swatches i { display:block; width:18px; height:18px; border-radius:50%; }
+.page-status { position:absolute; z-index:300; top:12px; left:50%; transform:translateX(-50%); display:flex; gap:12px; align-items:center; max-width:calc(100% - 30px); border:1px solid #dedfd4; border-radius:20px; padding:8px 14px; background:#fffef9ed; pointer-events:none; font-size:11px; color:#748075; }
+.page-status strong { color:#4e5e50; max-width:220px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.bot-active { display:flex; align-items:center; gap:5px; white-space:nowrap; }
+.bot-active i { width:7px; height:7px; border-radius:50%; background:#659367; box-shadow:0 0 0 3px #65936720; }
+.tool-popover { position:absolute; z-index:501; bottom:78px; left:50%; transform:translateX(-50%); max-width:calc(100% - 24px); max-height:65%; overflow:auto; padding:12px; border:1px solid #d8ded3; border-radius:16px; background:#fffef9; color:#41503e; box-shadow:0 6px 30px #26382720; pointer-events:auto; font-size:12px; touch-action:manipulation; }
+.tool-popover button { border:0; background:transparent; color:inherit; border-radius:8px; min-width:44px; min-height:44px; cursor:pointer; }
+.tool-popover button:hover,.tool-popover button[aria-pressed=true] { background:#e8eddf; }
+.popover-heading { display:flex; align-items:center; justify-content:space-between; gap:24px; }
+.popover-heading button { font-size:23px; }
+.swatches { display:flex; flex-wrap:wrap; align-items:center; }
+.swatches button { display:grid; place-items:center; }
+.eraser-options { display:grid; gap:8px; min-width:245px; }
+.eraser-options label { display:flex; align-items:center; gap:8px; min-height:44px; }
+.eraser-options input { width:20px; height:20px; accent-color:#65815d; }
+.eraser-ring { display:block; width:24px; height:24px; border:1.5px solid #65725f; border-radius:50%; margin:0 auto; }
+.paper-options { display:flex; gap:6px; }
+.paper-options button { display:flex; flex-direction:column; align-items:center; gap:7px; padding:8px; text-transform:capitalize; }
+.paper-sample { display:block; width:37px; height:48px; border:1px solid #d5dad0; border-radius:3px; background-color:#fffef9; flex-shrink:0; }
+.paper-sample.ruled { background-image:linear-gradient(90deg,transparent 17%,#dba4a1 17%,#dba4a1 19%,transparent 19%),repeating-linear-gradient(transparent 0 6px,#c2d6e3 6px 7px); }
+.paper-sample.grid { background-image:repeating-linear-gradient(90deg,transparent 0 6px,#c8d8df 6px 7px),repeating-linear-gradient(transparent 0 6px,#c8d8df 6px 7px); }
+.paper-sample.dot { background-image:radial-gradient(#b7c5cf .8px,transparent .8px); background-size:6px 6px; }
+.paper-sample img { width:100%; height:100%; object-fit:contain; }
+.page-strip { width:340px; }
+.page-list { display:grid; gap:4px; }
+.page-entry { display:flex; align-items:center; }
+.page-link { display:flex; align-items:center; text-align:left; gap:12px; flex:1; padding:8px; }
+.page-link small { display:block; font-size:10px; color:#8b9484; margin-top:5px; }
+.page-actions { display:flex; border-top:1px solid #e3e7de; padding-top:8px; margin-top:8px; }
+.upload-error { position:absolute; top:60px; right:20px; z-index:510; max-width:80%; background:#fff4ef; padding:12px; border:1px solid #d7977c; border-radius:8px; }
+.upload-error button { min-height:44px; }
+@media (orientation:landscape) {
+ .notebook-canvas { margin-left:70px; padding-bottom:0; }
+ .notebook-tools { left:-62px; top:8px; bottom:8px; transform:none; flex-direction:column; max-width:60px; max-height:calc(100% - 16px); border-radius:14px; overflow:auto; }
+ .favorites { flex-direction:column; }
+ .notebook-tools button { min-height:44px; }
+ .tool-popover { bottom:auto; top:12px; left:12px; transform:none; max-height:calc(100% - 24px); }
+}
+@media (max-width:600px) { .page-status span:not(.bot-active) { display:none; } .room-card { padding:16px; gap:10px; } .today-link { font-size:10px; } .swatches { max-width:270px; } }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }

@@ -1,0 +1,36 @@
+{
+  "name": "tldraw-notebook",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit -p .",
+    "test:client": "vitest run --root . src/client",
+    "start": "tsx src/server/server.ts"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "^11.0.0",
+    "@tldraw/sync": "5.5.2",
+    "@tldraw/sync-core": "5.5.2",
+    "@tldraw/tlschema": "5.5.2",
+    "@tldraw/utils": "5.5.2",
+    "@vitejs/plugin-react": "^6.0.1",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.8.1",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "tldraw": "5.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.0.16",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/ws": "^8",
+    "vitest": "^5.0.5"
+  }
+}
