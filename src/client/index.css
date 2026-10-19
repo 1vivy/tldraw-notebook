@@ -45,6 +45,7 @@ button { font: inherit; }
   .tool-divider { margin-inline: 1px; }
 }
 /* Pen-first chrome: fixed 44px hit areas, scroll instead of shrinking targets. */
+/* Floating chrome rules follow the legacy styling below. */
 .notebook-canvas { padding-bottom: 108px; }
 .notebook-tools { top:auto; bottom:max(10px,env(safe-area-inset-bottom)); left:50%; max-width:calc(100% - 16px); overflow:auto; align-items:center; gap:2px; padding:5px; border-radius:16px; }
 .notebook-tools button { min-width:44px; min-height:48px; flex-shrink:0; padding:4px; font-size:9px; }
@@ -90,4 +91,40 @@ button { font: inherit; }
  .tool-popover { bottom:auto; top:12px; left:12px; transform:none; max-height:calc(100% - 24px); }
 }
 @media (max-width:600px) { .page-status span:not(.bot-active) { display:none; } .room-card { padding:16px; gap:10px; } .today-link { font-size:10px; } .swatches { max-width:270px; } }
+/* Fixed overlays: hiding chrome never changes camera viewport dimensions. */
+.notebook-canvas { padding:0; margin:0; }
+.notebook-header { position:fixed; z-index:400; top:max(8px,env(safe-area-inset-top)); left:max(8px,env(safe-area-inset-left)); min-height:44px; padding:6px 10px; border:0; border-radius:24px; background:#fffef9b8; backdrop-filter:blur(12px); }
+.notebook-header h1,.notebook-header .connection-status,.notebook-hint { display:none; }
+.notebook-tools { position:fixed; inset:auto; left:50%; bottom:max(8px,env(safe-area-inset-bottom)); transform:translateX(-50%); flex-direction:row; max-width:calc(100vw - 24px); max-height:calc(100dvh - 100px); border-radius:26px; background:#fffef9ed; backdrop-filter:blur(16px); transition:opacity .18s; }
+.notebook-tools button { min-width:44px; min-height:44px; }
+.notebook-tools.dock-bottom { left:50%; bottom:max(8px,env(safe-area-inset-bottom)); }
+.notebook-tools button span { display:none; }
+.favorites { flex-direction:row; }
+.notebook-tools .toolbar-handle { cursor:grab; touch-action:none; font-size:24px; }
+.page-status { position:fixed; top:max(12px,env(safe-area-inset-top)); padding:5px 10px; font-size:10px; opacity:.8; transition:opacity .18s; }
+.page-status span:not(.bot-active) { display:none; }
+.chrome-hidden { opacity:0; pointer-events:none; }
+.tool-popover { position:fixed; top:auto; left:50%; bottom:max(72px,calc(env(safe-area-inset-bottom) + 64px)); transform:translateX(-50%); max-height:65dvh; }
+.tool-popover.page-strip { top:max(60px,env(safe-area-inset-top)); bottom:max(12px,env(safe-area-inset-bottom)); right:max(8px,env(safe-area-inset-right)); left:auto; transform:none; max-height:none; animation:pages-in .18s ease-out; }
+@keyframes pages-in { from { transform:translateX(105%); } to { transform:translateX(0); } }
+.pages-tab { position:fixed; right:max(0px,env(safe-area-inset-right)); top:45%; z-index:499; width:44px; min-height:44px; border:1px solid #d8ded3; border-radius:14px 0 0 14px; background:#fffef9c9; color:#5d685a; }
+.toolbar-indicator { position:fixed; z-index:500; inset:auto; left:50%; bottom:max(0px,env(safe-area-inset-bottom)); transform:translateX(-50%); width:70px; height:44px; border:0; background:transparent; display:grid; place-items:end center; padding:0 0 4px; }
+.toolbar-indicator i { width:48px; height:6px; border-radius:6px; background:#63765cc0; }
+@media (orientation:landscape) {
+ .notebook-tools.dock-auto { left:max(8px,env(safe-area-inset-left)); top:50%; bottom:auto; transform:translateY(-50%); flex-direction:column; max-width:60px; max-height:calc(100dvh - 100px); }
+ .notebook-tools.dock-auto .favorites { flex-direction:column; }
+ .toolbar-indicator.dock-auto { left:max(0px,env(safe-area-inset-left)); top:50%; bottom:auto; transform:translateY(-50%); width:44px; height:70px; padding:0 0 0 4px; place-items:center start; }
+ .toolbar-indicator.dock-auto i { width:6px; height:48px; }
+ .tool-popover:not(.page-strip) { left:80px; top:80px; bottom:auto; transform:none; }
+}
+.notebook-tools.dock-top { left:50%; top:max(8px,env(safe-area-inset-top)); bottom:auto; transform:translateX(-50%); }
+.notebook-tools.dock-left,.notebook-tools.dock-right { top:50%; bottom:auto; transform:translateY(-50%); flex-direction:column; max-width:60px; }
+.notebook-tools.dock-left { left:max(8px,env(safe-area-inset-left)); }
+.notebook-tools.dock-right { left:auto; right:max(8px,env(safe-area-inset-right)); }
+.notebook-tools.dock-left .favorites,.notebook-tools.dock-right .favorites { flex-direction:column; }
+.toolbar-indicator.dock-top { top:max(0px,env(safe-area-inset-top)); bottom:auto; place-items:start center; padding:4px 0 0; }
+.toolbar-indicator.dock-left,.toolbar-indicator.dock-right { top:50%; bottom:auto; transform:translateY(-50%); width:44px; height:70px; padding:4px; }
+.toolbar-indicator.dock-left { left:max(0px,env(safe-area-inset-left)); place-items:center start; }
+.toolbar-indicator.dock-right { left:auto; right:max(0px,env(safe-area-inset-right)); place-items:center end; }
+.toolbar-indicator.dock-left i,.toolbar-indicator.dock-right i { width:6px; height:48px; }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; transition:none!important; } }

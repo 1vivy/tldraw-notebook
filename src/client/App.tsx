@@ -1,10 +1,12 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, useReducer } from 'react'
+import { cameraOptions, installNotebookCamera } from './camera'
+import { chromeReducer, initialChrome } from './chrome-state'
 import { useSync } from '@tldraw/sync'
 import { createPortal } from 'react-dom'
 import {
   Tldraw, uniqueId, useEditor, useValue, DefaultColorStyle, DefaultSizeStyle,
   DefaultFontStyle, DefaultDashStyle, PageRecordType,
-  type TLAssetStore, type TLCameraOptions, type TLComponents, type Editor,
+  type TLAssetStore, type TLComponents, type Editor,
 } from 'tldraw'
 import { PAGE_W, PAGE_H, PAGE_GAP, RULE, MARGIN_X, sheetTop } from '../shared/geometry'
 import { templates, templateFromMeta, sheetCount, resolveToday, localDate, datedMeta } from './notebook'
@@ -13,14 +15,6 @@ import { NotebookLassoTool, installInteractions } from './interaction'
 import { parseRooms, type NotebookRoom } from './rooms'
 
 const rooms = parseRooms(import.meta.env.VITE_NOTEBOOK_ROOMS)
-const cameraOptions: Partial<TLCameraOptions> = {
-  wheelBehavior: 'pan', zoomSteps: [.75, 1, 1.5, 2, 3],
-  constraints: {
-    bounds: { x: 0, y: 0, w: PAGE_W, h: PAGE_H }, padding: { x: 8, y: 8 },
-    origin: { x: .5, y: 0 }, initialZoom: 'fit-x', baseZoom: 'fit-x',
-    behavior: { x: 'fixed', y: 'contain' },
-  },
-}
 const assets: TLAssetStore = {
   async upload(_asset, file) {
     const src = `/uploads/${encodeURIComponent(`${uniqueId()}-${file.name}`)}`
@@ -84,20 +78,54 @@ function PageThumbnail({id, template}: {id: import('tldraw').TLPageId; template:
 function NotebookControls() {
   const editor = useEditor()
   const [panel, setPanel] = useState('')
+  const [chrome, dispatchChrome] = useReducer(chromeReducer, initialChrome)
+  const [edge, setEdge] = useState(() => {
+    try { return localStorage.getItem('notebook-toolbar-edge') || 'auto' } catch { return 'auto' }
+  })
+  const [fingerDraws, setFingerDraws] = useState(() => {
+    try { return localStorage.getItem('notebook-finger-draws') === 'true' } catch { return false }
+  })
+  useEffect(() => {
+    editor.updateInstanceState({isPenMode: !fingerDraws})
+    try { localStorage.setItem('notebook-finger-draws', String(fingerDraws)) } catch { /* storage disabled */ }
+  }, [editor, fingerDraws])
+  useEffect(() => {
+    if (chrome.deadline === null) return
+    const timer = setTimeout(() => dispatchChrome({type:'tick', now:performance.now()}), Math.max(1,Math.ceil(chrome.deadline-performance.now())+1))
+    return () => clearTimeout(timer)
+  }, [chrome.deadline])
+  useEffect(() => {
+    const container = editor.getContainer()
+    const down = (e: PointerEvent) => {
+      if(e.pointerType === 'pen' && ['draw','highlight'].includes(editor.getCurrentToolId())) dispatchChrome({type:'down',now:performance.now()})
+    }
+    const up = (e: PointerEvent) => { if(e.pointerType === 'pen') dispatchChrome({type:'up',now:performance.now()}) }
+    container.addEventListener('pointerdown',down,true)
+    window.addEventListener('pointerup',up,true); window.addEventListener('pointercancel',up,true)
+    return () => {container.removeEventListener('pointerdown',down,true);window.removeEventListener('pointerup',up,true);window.removeEventListener('pointercancel',up,true)}
+  }, [editor])
+  function dock(e: React.PointerEvent<HTMLButtonElement>) {
+    const distances = {left:e.clientX, right:innerWidth-e.clientX, top:e.clientY, bottom:innerHeight-e.clientY}
+    e.currentTarget.parentElement!.style.translate = ''
+    const next = Object.entries(distances).sort((a,b)=>a[1]-b[1])[0][0]
+    setEdge(next)
+    try { localStorage.setItem('notebook-toolbar-edge',next) } catch { /* storage disabled */ }
+  }
   const [favorite, setFavorite] = useState(0)
   const [fingerErase, setFingerErase] = useState(false)
   const [scribbleErase, setScribbleErase] = useState(false)
   const [error, setError] = useState('')
   const file = useRef<HTMLInputElement>(null)
-  const options = useRef({fingerErase, scribbleErase})
-  options.current = {fingerErase, scribbleErase}
+  const options = useRef({fingerErase, scribbleErase, fingerDraws, reveal: () => dispatchChrome({type:'show',now:performance.now()})})
+  options.current = {fingerErase, scribbleErase, fingerDraws, reveal: () => dispatchChrome({type:'show',now:performance.now()})}
   const tool = useValue('tool', () => editor.getCurrentToolId(), [editor])
   const pages = useValue('pages', () => editor.getPages(), [editor])
   const page = useValue('page', () => editor.getCurrentPage(), [editor])
-  const count = useValue('sheets', () => currentSheets(editor), [editor])
+  useEffect(() => { editor.updateInstanceState({isPenMode:!fingerDraws}) }, [editor,page.id,fingerDraws])
   const undo = useValue('undo', () => editor.canUndo(), [editor])
   const redo = useValue('redo', () => editor.canRedo(), [editor])
   const selected = useValue('selection', () => editor.getSelectedShapeIds(), [editor])
+  useEffect(() => { dispatchChrome({type:'block', now:performance.now(), blocked:!!panel || selected.length > 0}) }, [panel, selected.length])
   const read = useValue('last read', () => editor.getDocumentSettings().meta.lastBotRead, [editor])
   const activity = useValue('activity', () => Math.max(0, ...editor.getCurrentPageShapesSorted().map(s => {
     const value = s.meta.updatedAt ?? s.meta.createdAt
@@ -119,9 +147,7 @@ function NotebookControls() {
     })
     return () => {create();change()}
   }, [editor])
-  useEffect(() => {
-    editor.setCameraOptions({ constraints: { ...cameraOptions.constraints!, bounds: {x:0,y:0,w:PAGE_W,h:sheetTop(count-1)+PAGE_H} } })
-  }, [editor,count,page.id])
+  useEffect(() => installNotebookCamera(editor), [editor])
   useEffect(() => {
     if (new URLSearchParams(location.search).get('page') === 'today') {
       const target = resolveToday(editor.getPages())
@@ -148,7 +174,7 @@ function NotebookControls() {
     const id = PageRecordType.createId()
     editor.createPage({id, name:dated ? `${localDate()} Dated` : 'Untitled notes',
       meta:dated ? datedMeta() : {kind:'notes',template:'ruled',createdBy:'user'}})
-    editor.setCurrentPage(id); editor.setCamera({x:0,y:0,z:editor.getBaseZoom()}); setPanel('pages')
+    editor.setCurrentPage(id); setPanel('pages')
   }
   function fit() {
     editor.setCamera({x:0,y:editor.getCamera().y,z:editor.getBaseZoom()}, {reset:true})
@@ -156,24 +182,28 @@ function NotebookControls() {
   const readTime = typeof read === 'number' ? read : typeof read === 'string' ? Date.parse(read) : 0
   const reading = now - readTime < 60000 && now >= readTime
   return createPortal(<>
-    <div className="page-status" data-notebook-ui role="status"><strong>{page.name}</strong><span>{activity ? `Last activity ${new Date(activity).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : 'Ready for your first stroke'}</span>{reading && <span className="bot-active"><i/>Bot active</span>}</div>
-    <div className="notebook-tools" data-notebook-ui role="toolbar" aria-label="Notebook tools" onPointerDown={e => {editor.markEventAsHandled(e);e.stopPropagation()}}>
+    <div className={`page-status ${chrome.hidden ? 'chrome-hidden' : ''}`} data-notebook-ui role="status"><strong>{page.name}</strong><span>{activity ? `Last activity ${new Date(activity).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}` : 'Ready for your first stroke'}</span>{reading && <span className="bot-active"><i/>Bot active</span>}</div>
+    <button className="pages-tab" data-notebook-ui aria-label="Open pages" aria-expanded={panel==='pages'} onClick={() => toggle('pages')}>▤</button>
+    {chrome.hidden && <button className={`toolbar-indicator dock-${edge}`} data-notebook-ui aria-label="Show toolbar" onClick={() => dispatchChrome({type:'show',now:performance.now()})}><i/></button>}
+    <div className={`notebook-tools dock-${edge} ${chrome.hidden ? 'chrome-hidden' : ''}`} inert={chrome.hidden} data-notebook-ui role="toolbar" aria-label="Notebook tools" onPointerDown={e => {editor.markEventAsHandled(e);e.stopPropagation()}}>
+      <button className="toolbar-handle" aria-label="Drag toolbar to an edge" onPointerDown={e => {e.currentTarget.dataset.startX=String(e.clientX);e.currentTarget.dataset.startY=String(e.clientY);e.currentTarget.setPointerCapture(e.pointerId)}} onPointerMove={e => {if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.parentElement!.style.translate=`${e.clientX-Number(e.currentTarget.dataset.startX)}px ${e.clientY-Number(e.currentTarget.dataset.startY)}px`}} onPointerUp={dock} onPointerCancel={e => {e.currentTarget.parentElement!.style.translate=''}}>⠿</button>
       <button aria-label="Pen options" aria-pressed={tool==='draw'} onClick={() => {pen();toggle('pen')}}><b>✎</b><span>Pen</span></button>
       <div className="favorites">{favorites.map((f,i) => <button key={f.label} className="favorite" aria-label={f.label} aria-pressed={tool==='draw'&&favorite===i} onClick={() => {pen(i);setPanel('')}}><i style={{background:colors.find(c=>c[0]===f.color)![1]}}/></button>)}</div>
-      <button aria-pressed={tool==='highlight'} onClick={() => {editor.setCurrentTool('highlight');editor.setStyleForNextShapes(DefaultColorStyle,'yellow');editor.setStyleForNextShapes(DefaultSizeStyle,'m');toggle('highlight')}}><b>▰</b><span>Highlight</span></button>
-      <button aria-pressed={tool==='eraser'} onClick={() => {editor.setCurrentTool('eraser');toggle('eraser')}}><b>▱</b><span>Eraser</span></button>
-      <button aria-pressed={tool==='notebook-lasso'||tool==='select'} onClick={() => {editor.setCurrentTool('notebook-lasso');setPanel('')}}><b>◌</b><span>Lasso</span></button>
+      <button aria-label="Highlight" aria-pressed={tool==='highlight'} onClick={() => {editor.setCurrentTool('highlight');editor.setStyleForNextShapes(DefaultColorStyle,'yellow');editor.setStyleForNextShapes(DefaultSizeStyle,'m');toggle('highlight')}}><b>▰</b><span>Highlight</span></button>
+      <button aria-label="Eraser" aria-pressed={tool==='eraser'} onClick={() => {editor.setCurrentTool('eraser');toggle('eraser')}}><b>▱</b><span>Eraser</span></button>
+      <button aria-label="Lasso" aria-pressed={tool==='notebook-lasso'||tool==='select'} onClick={() => {editor.setCurrentTool('notebook-lasso');setPanel('')}}><b>◌</b><span>Lasso</span></button>
       <button disabled={!undo} aria-label="Undo" onClick={() => editor.undo()}><b>↶</b><span>Undo</span></button>
       <button disabled={!redo} aria-label="Redo" onClick={() => editor.redo()}><b>↷</b><span>Redo</span></button>
-      <button onClick={fit}><b>↔</b><span>Fit width</span></button>
-      <button aria-expanded={panel==='pages'} onClick={() => toggle('pages')}><b>▤</b><span>Pages</span></button>
-      <button aria-expanded={panel==='paper'} onClick={() => toggle('paper')}><b>▦</b><span>Paper</span></button>
-      <button onClick={() => file.current?.click()}><b>▧</b><span>Image</span></button>
-      <button aria-pressed={tool==='text'} onClick={() => {editor.setStyleForNextShapes(DefaultFontStyle,'sans');editor.setStyleForNextShapes(DefaultSizeStyle,'m');editor.setCurrentTool('text');setPanel('')}}><b>T</b><span>Text</span></button>
+      <button aria-label="Fit width" onClick={fit}><b>↔</b><span>Fit width</span></button>
+      <button aria-label="Pages" aria-expanded={panel==='pages'} onClick={() => toggle('pages')}><b>▤</b><span>Pages</span></button>
+      <button aria-label="Paper" aria-expanded={panel==='paper'} onClick={() => toggle('paper')}><b>▦</b><span>Paper</span></button>
+      <button aria-label="Image" onClick={() => file.current?.click()}><b>▧</b><span>Image</span></button>
+      <button aria-label="Text" aria-pressed={tool==='text'} onClick={() => {editor.setStyleForNextShapes(DefaultFontStyle,'sans');editor.setStyleForNextShapes(DefaultSizeStyle,'m');editor.setCurrentTool('text');setPanel('')}}><b>T</b><span>Text</span></button>
     </div>
     {(panel || selected.length > 0) && <aside className={`tool-popover ${panel==='pages'?'page-strip':''}`} data-notebook-ui onPointerDown={e => {editor.markEventAsHandled(e);e.stopPropagation()}} aria-label="Tool options">
       <div className="popover-heading"><strong>{panel ? {pen:'Pen · pressure sensitive',highlight:'Highlighter',eraser:'Stroke eraser',pages:'Notebook sections',paper:'Paper template'}[panel] : 'Selection colour'}</strong><button aria-label="Close options" onClick={() => {setPanel('');editor.selectNone()}}>×</button></div>
       {(panel==='pen'||(!panel&&selected.length>0)) && <div className="swatches">{colors.map(([color,hex]) => <button key={color} aria-label={`${color} ink`} onClick={() => {editor.setStyleForNextShapes(DefaultColorStyle,color);if(selected.length)editor.setStyleForSelectedShapes(DefaultColorStyle,color)}}><i style={{background:hex}}/></button>)}{sizes.map((s,i) => <button key={s} aria-label={`${s} stroke width`} onClick={() => editor.setStyleForNextShapes(DefaultSizeStyle,s)}><i style={{background:'#303b39',width:3+i*3,height:3+i*3}}/></button>)}</div>}
+      {panel==='pen' && <button aria-pressed={fingerDraws} onClick={() => setFingerDraws(v=>!v)}>Finger draws: {fingerDraws ? 'on' : 'off'}</button>}
       {panel==='highlight' && <div className="swatches">{(['yellow','green','light-red'] as const).map((c,i) => <button key={c} aria-label={['Yellow','Green','Pink'][i]} onClick={() => editor.setStyleForNextShapes(DefaultColorStyle,c)}><i style={{background:['#f3de62','#9dd394','#efa7bc'][i]}}/></button>)}</div>}
       {panel==='eraser' && <div className="eraser-options"><span className="eraser-ring" aria-hidden="true"/><label><input type="checkbox" checked={scribbleErase} onChange={e => setScribbleErase(e.target.checked)}/>Scribble to erase (pen)</label><label><input type="checkbox" checked={fingerErase} onChange={e => setFingerErase(e.target.checked)}/>Finger erases instead of pans</label></div>}
       {panel==='paper' && <div className="paper-options">{templates.map(t => <button key={t} aria-pressed={templateFromMeta(page.meta)===t} onClick={() => editor.updatePage({id:page.id,meta:{...page.meta,template:t}})}><span className={`paper-sample ${t}`}/>{t}</button>)}</div>}
@@ -191,7 +221,7 @@ function Notebook({ room }: { room: NotebookRoom }) {
   const store = useSync({uri:uri.toString(), assets})
   return <main className="notebook-shell"><header className="notebook-header"><a href="/">← Notebooks</a><h1>{room.label}</h1><span className={`connection-status ${store.status==='error'?'connection-error':''}`} role="status">{store.status==='synced-remote' ? store.connectionStatus==='online'?'Connected':'Reconnecting…' : store.status==='error'?'Connection failed — reload to retry':'Connecting…'}</span></header>
     <div className="notebook-canvas"><Tldraw store={store} hideUi initialState="draw" components={components} tools={tools} cameraOptions={cameraOptions} licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY} onMount={editor => {editor.updateInstanceState({isPenMode:true});editor.user.updateUserPreferences({colorScheme:'light'});editor.setStyleForNextShapes(DefaultColorStyle,'black');editor.setStyleForNextShapes(DefaultSizeStyle,'s');editor.setStyleForNextShapes(DefaultFontStyle,'sans');editor.setCurrentTool('draw')}}><NotebookControls/></Tldraw></div>
-    <footer className="notebook-hint">Pencil to write · Finger to pan · Pinch to zoom · Two-finger tap undo</footer></main>
+    <footer className="notebook-hint">Pencil to write · Finger to pan · Pinch to zoom</footer></main>
 }
 export default function App() {
   const path = window.location.pathname.replace(/\/$/,'')||'/'

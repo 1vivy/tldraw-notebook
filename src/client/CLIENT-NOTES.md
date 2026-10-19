@@ -2,10 +2,18 @@
 
 Uses the pinned tldraw 5.5.2 public APIs; built-in UI stays hidden and the license/watermark is unchanged. Geometry lives in `src/shared/geometry.ts`.
 
+## Camera and floating chrome
+- `camera.ts` installs `editor.setCameraOptions` with `constraints.bounds`, 8px horizontal `padding`, top-center `origin`, `initialZoom/baseZoom: 'fit-x'`, fixed x/free y and `zoomSteps: [1,1.5,2,3]`. `sideEffects.registerBeforeChangeHandler('camera')` hard-clamps even forced native pinch/inertia changes: zoom `(viewportWidth - 16)/820` through three times that value; x stays centered; camera y stays between `-lastSheetBottom` and `0` (one blank viewport after the sheet). Undershoot is prevented rather than visibly rubber-banded; release within 8% above fit animates back in 150ms using `setCamera(..., {animation:{duration:150}})`.
+- tldraw `react`, `getViewportScreenBounds`, `getCamera`, `getCurrentPageId`, `getCurrentPageShapesSorted` and `getShapePageBounds` track viewport/page/sheet changes. Resize/orientation restores fit width; per-room/page camera restores from sessionStorage. Finger double-tap toggles fit/2x, vertically anchoring the tap; x intentionally remains centered. Native TouchEvents/GestureEvents still handle pinch.
+- Toolbar is a fixed compact pill, bottom-center portrait/left-center landscape by default. Drag the handle to dock at any edge; dock choice persists locally. All targets remain at least 44px. Canvas has no toolbar padding/margin; hide/show cannot resize it. Safe-area insets apply to docks, page drawer, status and indicator.
+- Pure `chromeReducer` tracks 700ms hide from the first pen-down in an active writing burst; subsequent strokes preserve that deadline. Hidden chrome stays hidden until 600ms after the last pen-up. Popovers/selections inhibit hiding. Tap the 6px edge indicator (44px hit area), or two-finger tap, to reveal immediately. Two-finger tap now reveals instead of undo; use toolbar undo. Status fades with chrome; right-edge tab opens the sliding page drawer.
+- Pen-only mode is applied on mount and section changes. The pen popover's one-tap Finger draws toggle persists locally and bypasses finger pan interception when enabled. Default fingers pan, or erase with the eraser option; never draw. Hold-to-line and lasso behavior is unchanged.
+- Camera math and chrome timing have pure unit tests. No browser is installed on this host: Safari/PWA gesture ordering, Pencil behavior, visual layout and latency still require an actual iPad acceptance pass.
+
 ## Delivered
 - Page-space sheets, templates from `page.meta.template`, grey gaps, automatic sheet growth, constrained fit-width camera and native pinch.
 - Responsive 44px-target toolbar, three pressure-sensitive pen presets, six colours/three widths, highlighter palette and snap, eraser ring/toggles, enclosure lasso, undo/redo, fit, section thumbnails/rename/create, local-date dated pages, paper picker, images through the existing asset store, sans medium text.
-- Finger pan/erase, two/three-finger tap undo/redo, 400ms hold-to-line and opt-in scribble erase. See INTERACTION-NOTES.md for precise recognition thresholds and interaction caveats.
+- Finger pan/erase, two-finger tap reveal / three-finger tap redo, 400ms hold-to-line and opt-in scribble erase. See INTERACTION-NOTES.md for precise recognition thresholds and interaction caveats.
 - Index notebook links and today's-page links; activity appears inside the notebook. Bot-read presence expires after 60 seconds; remote bot shapes fade in.
 - Standalone PWA manifest, generated icons, Apple metadata and app-shell-only service worker. No notebook data is cached. Offline room navigation is intentionally unavailable.
 

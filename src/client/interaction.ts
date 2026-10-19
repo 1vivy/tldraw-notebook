@@ -54,7 +54,7 @@ type Stroke = {
 /** Returns an idempotent disposer; call it before disposing the editor. */
 export function installInteractions(
   editor: Editor,
-  options: () => { fingerErase: boolean; scribbleErase: boolean },
+  options: () => { fingerErase: boolean; scribbleErase: boolean; fingerDraws?: boolean; reveal?: () => void },
 ): () => void {
   const container = editor.getContainer()
   const touches = new Map<number, { start: Point; last: Point }>()
@@ -153,7 +153,7 @@ export function installInteractions(
 
   function down(event: PointerEvent) {
     if (ignored(event)) return
-    if (event.pointerType === 'touch') {
+    if (event.pointerType === 'touch' && !options().fingerDraws) {
       // Only PointerEvents are stopped. TouchEvents and GestureEvents reach native pinch unchanged.
       event.stopPropagation()
       const p = screen(event)
@@ -209,7 +209,7 @@ export function installInteractions(
       try { if (container.hasPointerCapture(event.pointerId)) container.releasePointerCapture(event.pointerId) } catch { /* detached */ }
       if (!touches.size) {
         if (!rejected && performance.now() - touchStart <= 280) {
-          if (maximumTouches === 2) editor.undo()
+          if (maximumTouches === 2) options().reveal?.()
           if (maximumTouches === 3) editor.redo()
         }
         eraseMark = false
